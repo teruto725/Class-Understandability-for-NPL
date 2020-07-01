@@ -4,7 +4,11 @@ from scipy import spatial
 import gensim
 import nltk
 import numpy as np
-model = gensim.models.KeyedVectors.load_word2vec_format('./w2v-dataset/googlenews.bin', binary=True,limit=800000)    
+import pandas as pd
+from pathlib import Path
+path = Path(__file__).parent   # test.pyのあるディレクトリ
+path /= '../w2v-dataset/googlenews.bin'
+model = gensim.models.KeyedVectors.load_word2vec_format(path, binary=True,limit=500000)    
 
 
 class Evaluations():
@@ -24,9 +28,21 @@ class Evaluations():
         return Evaluations.get(name,diagram,c1,c2)
     
     @staticmethod
-    def save_to_file(filename):
+    def save_to_file():
         pass
     
+    def to_data_frame(diagrams):
+        li = list()
+        for d in diagrams:
+            di = {}
+            for eva in Evaluations.evas:
+                if eva.diagram is not None and eva.diagram == d:
+                    di[eva.name] = eva.value
+            li.append(di)
+        df = pd.DataFrame([], columns = li[0].keys())
+        df = pd.concat([df, pd.DataFrame.from_dict(li)])
+        return df
+            
 
 class Evaluation():
     def __init__(self,name , diagram=None,c1=None,c2=None):
@@ -75,6 +91,11 @@ class Evaluation():
             self.value = self.calc_sp_wv(c1)
         elif self.name == "tops_crsu_wv":
             self.value = self.calc_tops_crsu_wv(diagram)
+        elif self.name == "cufn_ave":
+            self.value = self.calc_cufn_ave(diagram)
+        elif self.name == "cufn_ave_wv":
+            self.value = self.calc_cufn_ave_wv(diagram)
+
 
     def equals(self,name,diagram=None,c1=None,c2=None):
         if self.name ==name and self.diagram == diagram and self.c1 == c1 and self.c2 == c2:
@@ -102,7 +123,9 @@ class Evaluation():
         s += str(self.value)
         return s
 
-################################################
+    
+
+################################################nirmal
 
     def calc_similarity(self,cx1,cx2):
         if type(cx1) is Class:
@@ -230,7 +253,7 @@ class Evaluation():
         tops_crsu = Evaluations.get("tops_crsu",diagram=diagram).value
         return ave_bv +tops_crsu
 
-################
+################ crsu
     def calc_crsu_wv(self,diagram):
         rdus = list()
         cl = diagram.clist
@@ -331,3 +354,37 @@ class Evaluation():
                 sp = 1.0-abs(self.calc_similarity_wv(top_c.name,achild)-self.calc_similarity_wv(top_c.name,bchild))
         return sp
 
+###calc###########################
+    def calc_num_relations(self,diagram):
+        pass
+
+
+
+########cufuを個数で平均とる方式に変更
+    def calc_cufn_ave(self,diagram):
+        top_classes = diagram.get_top_classes()
+        rdus = list()
+        for i in range(len(top_classes)-1):
+            for j in range(i+1,len(top_classes)):
+                rdu =  Evaluations.get("rdu",diagram=diagram,c1 = top_classes[i],c2=top_classes[j]).value
+                if rdu is not None:
+                    rdus.append(rdu)
+        if len(rdus) == 0:
+            return 0
+        evas = list()
+        if top_c.childrlist:
+            for childr in top_c.childrlist:
+                if childr.type == "--|>":
+                    hu = Evaluations.get("hu",c1 = top_c,c2 = childr.fromclass)
+                    evas.append(hu.value)
+                elif childr.type == "--*":
+                    pu = Evaluations.get("pu",c1=top_c,c2=childr.fromclass)
+                    evas.append(pu.value)
+            if len(top_c.childrlist) >=2:#子クラスを2つ以上持つとき
+                sp = Evaluations.get("sp",c1=top_c)
+                evas.append(sp.value)
+            return sum(evas)/len(evas)
+        else:
+            return None
+    def calc_cufn_ave_wv(self,diagram):
+        pass
